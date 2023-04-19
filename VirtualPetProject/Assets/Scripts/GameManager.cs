@@ -154,6 +154,6 @@ public static class Messages
 
     internal static string GetPetEatMessage(string petName)
     {
-        return $"I hop you enjoy this yummy treat {petName}!";
+        return $"I hope you enjoy this yummy treat {petName}!";
     }
 }
