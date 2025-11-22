@@ -5,12 +5,13 @@ using System.Linq;
 using System;
 
 /// <summary>
-/// Main game manager - orchestrates cat virtual pet game
-/// Handles cat AI, idle progression, and player interactions
+/// Main game manager - orchestrates virtual pet game
+/// Handles animal AI, idle progression, and player interactions
+/// Generic architecture - works with cats, dogs, or other animals
 /// </summary>
-public class CatGameManager : MonoBehaviour
+public class GameManager : MonoBehaviour
 {
-    public static CatGameManager Instance { get; private set; }
+    public static GameManager Instance { get; private set; }
 
     [Header("References")]
     [SerializeField] private FirebaseManager firebaseManager;
