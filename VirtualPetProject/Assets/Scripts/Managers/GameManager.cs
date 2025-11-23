@@ -481,6 +481,26 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Called when cat affection changes (from PettingInteraction or other sources)
+    /// </summary>
+    public void OnCatAffectionChanged(string catId, float newAffection)
+    {
+        if (!playerProfile.cats.ContainsKey(catId)) return;
+
+        var cat = playerProfile.cats[catId];
+        cat.affection = newAffection;
+
+        // Update UI
+        if (uiManager != null)
+        {
+            uiManager.UpdateCatStats(cat);
+        }
+
+        // Save state
+        SaveGameState();
+    }
+
+    /// <summary>
     /// Release cat for prestige
     /// </summary>
     public void ReleaseCat(string catId)
