@@ -66,9 +66,15 @@ public class CatData
     public CatSource source;
 
     // Appearance (for Red Deer Cat Family Pack integration)
-    public string coatType;                 // e.g., "tabby", "calico", "black"
-    public string eyeColor;                 // e.g., "green", "blue", "yellow"
-    public int variantIndex;                // Which Red Deer model variant
+    public CatBodyType bodyType = CatBodyType.Simple;  // Current body type
+    public CatBodyType originalBodyType;                // Body type at adoption
+    public string colorVariantId = "tabby";             // Color variant (tabby, calico, black, etc.)
+
+    // Body evolution (Kitten → Simple, Skinny → Simple with weight gain)
+    public bool isEvolving = false;
+    public CatBodyType targetBodyType;
+    public long evolutionStartTime;         // When evolution started
+    public float evolutionDurationDays = 7f; // How long evolution takes
 
     // Stats (0-100 scale)
     public float affection = 50f;           // Primary stat, affects generation
