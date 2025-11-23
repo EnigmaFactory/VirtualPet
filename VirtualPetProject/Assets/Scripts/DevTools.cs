@@ -13,11 +13,13 @@ public class DevTools : MonoBehaviour
 
     private GameManager gameManager;
     private FirebaseManager firebaseManager;
+    private CameraController cameraController;
 
     void Start()
     {
         gameManager = GameManager.Instance;
         firebaseManager = FirebaseManager.Instance;
+        cameraController = Camera.main?.GetComponent<CameraController>();
     }
 
     #region Quick Test Methods (Right-click in Inspector)
@@ -186,6 +188,64 @@ public class DevTools : MonoBehaviour
         }
     }
 
+    // Camera Tests
+
+    [ContextMenu("Camera/Switch to Orbit Mode")]
+    void TestOrbitMode()
+    {
+        if (cameraController != null)
+        {
+            cameraController.SetMode(CameraMode.Orbit);
+            Debug.Log("📷 Camera: Orbit Mode");
+        }
+        else
+        {
+            Debug.LogWarning("CameraController not found!");
+        }
+    }
+
+    [ContextMenu("Camera/Switch to Focus Mode")]
+    void TestFocusMode()
+    {
+        if (cameraController != null)
+        {
+            cameraController.FocusOnNearestCat();
+            Debug.Log("📷 Camera: Focus Mode");
+        }
+        else
+        {
+            Debug.LogWarning("CameraController not found!");
+        }
+    }
+
+    [ContextMenu("Camera/Frame All Cats")]
+    void TestFrameAll()
+    {
+        if (cameraController != null)
+        {
+            cameraController.FrameAllCats();
+            Debug.Log("📷 Camera: Framing all cats");
+        }
+        else
+        {
+            Debug.LogWarning("CameraController not found!");
+        }
+    }
+
+    [ContextMenu("Camera/Refresh Cat List")]
+    void TestRefreshCats()
+    {
+        if (cameraController != null)
+        {
+            cameraController.RefreshCatList();
+            Debug.Log($"📷 Camera: Tracking {cameraController.TrackedCatsCount} cats");
+        }
+        else
+        {
+            Debug.LogWarning("CameraController not found!");
+        }
+    }
+
     #endregion
 
     #region Helper Methods
@@ -229,6 +289,22 @@ public class DevTools : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F4))
         {
             TestShowStats();
+        }
+
+        // Camera shortcuts
+        if (Input.GetKeyDown(KeyCode.F5))
+        {
+            TestOrbitMode();
+        }
+
+        if (Input.GetKeyDown(KeyCode.F6))
+        {
+            TestFocusMode();
+        }
+
+        if (Input.GetKeyDown(KeyCode.F7))
+        {
+            TestFrameAll();
         }
     }
 
