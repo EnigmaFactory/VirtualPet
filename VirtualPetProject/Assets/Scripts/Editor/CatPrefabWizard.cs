@@ -429,7 +429,7 @@ public class CatPrefabWizard : EditorWindow
         EditorGUILayout.LabelField($"Body Type: {bodyType}");
         EditorGUILayout.LabelField($"Variants to create: {GetVariantCount()}");
         EditorGUILayout.LabelField($"Output: {outputFolder}");
-        EditorGUILayout.LabelField($"Bones configured: {boneRefs.IsValid() ? "Yes ✅" : "No ⚠️"}");
+        EditorGUILayout.LabelField($"Bones configured: {(boneRefs.IsValid() ? "Yes ✅" : "No ⚠️")}");
 
         EditorGUILayout.Space(10);
 
@@ -510,7 +510,13 @@ public class CatPrefabWizard : EditorWindow
     {
         string qualityFolder = quality.ToString();
         string prefabName = $"{bodyType}_{quality}.prefab";
-        string fullPath = $"{outputFolder}/{qualityFolder}/{prefabName}";
+        
+        // Normalize output folder path (remove trailing slashes)
+        string normalizedOutputFolder = outputFolder.TrimEnd('/', '\\');
+        string fullPath = $"{normalizedOutputFolder}/{qualityFolder}/{prefabName}";
+
+        // Ensure directory exists before saving
+        EnsureDirectoryExists(normalizedOutputFolder, qualityFolder);
 
         // Instantiate model
         GameObject instance = Instantiate(sourceModel);
@@ -533,19 +539,75 @@ public class CatPrefabWizard : EditorWindow
         return prefab;
     }
 
+    void EnsureDirectoryExists(string parentPath, string folderName)
+    {
+        string fullPath = $"{parentPath}/{folderName}";
+        
+        if (!AssetDatabase.IsValidFolder(fullPath))
+        {
+            // Ensure parent exists first
+            EnsureParentPathExists(parentPath);
+            
+            // Create the folder
+            string guid = AssetDatabase.CreateFolder(parentPath, folderName);
+            if (string.IsNullOrEmpty(guid))
+            {
+                Debug.LogWarning($"⚠️ Failed to create folder: {fullPath}");
+            }
+            else
+            {
+                AssetDatabase.Refresh();
+            }
+        }
+    }
+
+    void EnsureParentPathExists(string path)
+    {
+        // Normalize path
+        path = path.Replace('\\', '/').TrimEnd('/');
+        
+        if (string.IsNullOrEmpty(path) || path == "Assets")
+        {
+            return; // Assets folder always exists
+        }
+
+        // Check if path exists
+        if (!AssetDatabase.IsValidFolder(path))
+        {
+            // Get parent path
+            int lastSlash = path.LastIndexOf('/');
+            if (lastSlash > 0)
+            {
+                string parentPath = path.Substring(0, lastSlash);
+                string folderName = path.Substring(lastSlash + 1);
+                
+                // Recursively ensure parent exists
+                EnsureParentPathExists(parentPath);
+                
+                // Create this folder
+                string guid = AssetDatabase.CreateFolder(parentPath, folderName);
+                if (!string.IsNullOrEmpty(guid))
+                {
+                    AssetDatabase.Refresh();
+                }
+            }
+        }
+    }
+
     void CreateOutputFolders()
     {
+        // Normalize output folder path
+        string normalizedOutputFolder = outputFolder.TrimEnd('/', '\\');
+        
+        // Ensure parent path exists
+        EnsureParentPathExists(normalizedOutputFolder);
+        
         // Create quality folders
         string[] folders = { "High", "Medium", "Low" };
 
         foreach (string folder in folders)
         {
-            string path = $"{outputFolder}/{folder}";
-            if (!AssetDatabase.IsValidFolder(path))
-            {
-                string parentFolder = outputFolder;
-                AssetDatabase.CreateFolder(parentFolder, folder);
-            }
+            EnsureDirectoryExists(normalizedOutputFolder, folder);
         }
     }
 
@@ -580,8 +642,8 @@ public class CatPrefabWizard : EditorWindow
         {
             Rigidbody rb = go.AddComponent<Rigidbody>();
             rb.mass = 4.5f; // Average cat weight
-            rb.drag = 1f;
-            rb.angularDrag = 0.5f;
+            rb.linearDamping = 1f;
+            rb.angularDamping = 0.5f;
             rb.constraints = RigidbodyConstraints.FreezeRotation; // Rotation controlled by code
         }
 
@@ -693,11 +755,11 @@ public class CatPrefabWizard : EditorWindow
                     var labelsProperty = entry.GetType().GetProperty("labels");
                     var labels = labelsProperty?.GetValue(entry) as System.Collections.IList;
 
+                    string bodyTypeLabel = bodyType.ToString().ToLower();
+                    string qualityLabel = quality.ToString().ToLower();
+
                     if (labels != null)
                     {
-                        string bodyTypeLabel = bodyType.ToString().ToLower();
-                        string qualityLabel = quality.ToString().ToLower();
-
                         if (!labels.Contains("cat")) labels.Add("cat");
                         if (!labels.Contains(bodyTypeLabel)) labels.Add(bodyTypeLabel);
                         if (!labels.Contains(qualityLabel)) labels.Add(qualityLabel);
