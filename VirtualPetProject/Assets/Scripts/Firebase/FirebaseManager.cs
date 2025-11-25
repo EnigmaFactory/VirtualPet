@@ -333,8 +333,15 @@ public class FirebaseManager : MonoBehaviour
     {
         await Task.Delay(200); // Simulate network
 
+        // Configure JSON settings to handle Vector3/Quaternion properly
+        JsonSerializerSettings settings = new JsonSerializerSettings
+        {
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+            Converters = new List<JsonConverter> { new Vector3Converter(), new QuaternionConverter() }
+        };
+
         string key = $"mock_player_{currentUserId}";
-        string json = JsonConvert.SerializeObject(currentPlayerProfile);
+        string json = JsonConvert.SerializeObject(currentPlayerProfile, settings);
         mockDatabase[key] = json;
 
         Debug.Log("🧪 Mock player data saved");
@@ -384,7 +391,12 @@ public class FirebaseManager : MonoBehaviour
         {
             // Mock: just store in memory
             string key = $"released_{cat.id}";
-            mockDatabase[key] = JsonConvert.SerializeObject(cat);
+            JsonSerializerSettings settings = new JsonSerializerSettings
+            {
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                Converters = new List<JsonConverter> { new Vector3Converter(), new QuaternionConverter() }
+            };
+            mockDatabase[key] = JsonConvert.SerializeObject(cat, settings);
             Debug.Log($"🧪 Cat {cat.name} added to mock released pool");
             return true;
         }
@@ -394,7 +406,12 @@ public class FirebaseManager : MonoBehaviour
         var dbRef = Firebase.Database.FirebaseDatabase.DefaultInstance
             .GetReference($"globalPools/releasedCats/{cat.id}");
 
-        string json = JsonConvert.SerializeObject(cat);
+        JsonSerializerSettings settings = new JsonSerializerSettings
+        {
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+            Converters = new List<JsonConverter> { new Vector3Converter(), new QuaternionConverter() }
+        };
+        string json = JsonConvert.SerializeObject(cat, settings);
         await dbRef.SetRawJsonValueAsync(json);
 
         return true;
@@ -411,7 +428,12 @@ public class FirebaseManager : MonoBehaviour
         if (TEST_MODE)
         {
             string key = $"runaway_{cat.id}";
-            mockDatabase[key] = JsonConvert.SerializeObject(cat);
+            JsonSerializerSettings settings = new JsonSerializerSettings
+            {
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                Converters = new List<JsonConverter> { new Vector3Converter(), new QuaternionConverter() }
+            };
+            mockDatabase[key] = JsonConvert.SerializeObject(cat, settings);
             Debug.Log($"🧪 Cat {cat.name} added to mock runaway pool");
             return true;
         }
@@ -421,7 +443,12 @@ public class FirebaseManager : MonoBehaviour
         var dbRef = Firebase.Database.FirebaseDatabase.DefaultInstance
             .GetReference($"globalPools/runawayCats/{cat.id}");
 
-        string json = JsonConvert.SerializeObject(cat);
+        JsonSerializerSettings settings = new JsonSerializerSettings
+        {
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+            Converters = new List<JsonConverter> { new Vector3Converter(), new QuaternionConverter() }
+        };
+        string json = JsonConvert.SerializeObject(cat, settings);
         await dbRef.SetRawJsonValueAsync(json);
 
         return true;

@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 377203443258250449840a50a659a4f8, type: 3}
+  m_Name: FurnitureCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::FurnitureCatalog
+  entries:
+  - furnitureId: new_furniture
+    displayName: New Furniture
+    furnitureType: 0
+    addressableKey: 
+    prefabFallback: {fileID: 0}
+    defaultPositionOffset: {x: 0, y: 0, z: 0}
+    defaultEulerRotation: {x: 0, y: 0, z: 0}
+    defaultScale: {x: 1, y: 1, z: 1}
+    defaultGenerationBonus: 0
+    defaultSetName: 
+    includeInStarterSet: 0
+    starterPlacements: []
+    interactionPoints: []
+  - furnitureId: scratching_post_simple_blue
+    displayName: Scratching Post Simple Blue
+    furnitureType: 5
+    addressableKey: scratching_post_simple_blue
+    prefabFallback: {fileID: 4047028098642018446, guid: 7d42b9a3824252246b617f81bc1ccf83, type: 3}
+    defaultPositionOffset: {x: 0, y: 0, z: 0}
+    defaultEulerRotation: {x: 0, y: 0, z: 0}
+    defaultScale: {x: 1, y: 1, z: 1}
+    defaultGenerationBonus: 0
+    defaultSetName: 
+    includeInStarterSet: 1
+    starterPlacements:
+    - roomType: 0
+      localPosition: {x: -2, y: 0, z: -3}
+      localEuler: {x: 0, y: 0, z: 0}
+    interactionPoints:
+    - anchorName: Scratch Point 01
+      interactionType: 6
+      localPosition: {x: 0, y: 1, z: 0}
+      localEuler: {x: 0, y: 0, z: 0}
+      snapToPosition: 1
+      matchRotation: 1
+      maxOccupants: 1
+      isToy: 0
+      playDuration: 5
+  - furnitureId: simple_striped_ball
+    displayName: Simple Striped Ball
+    furnitureType: 1
+    addressableKey: simple_striped_ball
+    prefabFallback: {fileID: 2191481999838373954, guid: 07c9efb625819bf4ebf31b3c71d95f07, type: 3}
+    defaultPositionOffset: {x: 0, y: 0, z: 0}
+    defaultEulerRotation: {x: 0, y: 0, z: 0}
+    defaultScale: {x: 1, y: 1, z: 1}
+    defaultGenerationBonus: 0
+    defaultSetName: 
+    includeInStarterSet: 1
+    starterPlacements:
+    - roomType: 0
+      localPosition: {x: 1.5, y: 0, z: 0}
+      localEuler: {x: 0, y: 0, z: 0}
+    interactionPoints:
+    - anchorName: Anchor
+      interactionType: 5
+      localPosition: {x: 0, y: 0, z: 0}
+      localEuler: {x: 0, y: 0, z: 0}
+      snapToPosition: 1
+      matchRotation: 1
+      maxOccupants: 1
+      isToy: 1
+      playDuration: 5

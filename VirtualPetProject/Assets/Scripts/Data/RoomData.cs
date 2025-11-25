@@ -1,6 +1,37 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
+
+/// <summary>
+/// Centralized room ID constants to prevent mismatches
+/// </summary>
+public static class RoomIds
+{
+    public const string StarterApartment = "starter_apartment";
+    public const string LivingRoom = "living_room";
+    public const string GardenPatio = "garden_patio";
+    public const string Bedroom = "bedroom";
+    public const string CatCafe = "cat_cafe";
+    public const string LuxuryPenthouse = "luxury_penthouse";
+
+    /// <summary>
+    /// Get room ID for a given RoomType
+    /// </summary>
+    public static string GetRoomId(RoomType type)
+    {
+        switch (type)
+        {
+            case RoomType.StarterApartment: return StarterApartment;
+            case RoomType.LivingRoom: return LivingRoom;
+            case RoomType.GardenPatio: return GardenPatio;
+            case RoomType.Bedroom: return Bedroom;
+            case RoomType.CatCafe: return CatCafe;
+            case RoomType.LuxuryPenthouse: return LuxuryPenthouse;
+            default: return type.ToString().ToLower();
+        }
+    }
+}
 
 /// <summary>
 /// Room types with different costs and benefits
@@ -222,7 +253,7 @@ public static class RoomConfig
     {
         RoomData room = new RoomData
         {
-            id = type.ToString().ToLower(),
+            id = RoomIds.GetRoomId(type), // Use centralized room ID
             roomType = type,
             unlocked = (type == RoomType.StarterApartment) // Starter is free
         };

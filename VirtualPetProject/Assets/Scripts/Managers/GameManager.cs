@@ -16,10 +16,13 @@ public class GameManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private FirebaseManager firebaseManager;
     [SerializeField] private UIManager uiManager;
+    [SerializeField] private CameraController cameraController; // Camera for auto-focus
+    [SerializeField] private GameObject catPrefab; // Cat prefab to instantiate
 
     [Header("Game State")]
     [SerializeField] private bool gameActive = false;
     [SerializeField] private float updateInterval = 1f; // Update cats every second
+    [SerializeField] private Vector3 catSpawnPosition = new Vector3(0, 0, 0); // Where to spawn cats
 
     // Current player data (cached from Firebase)
     private PlayerProfile playerProfile;
@@ -32,6 +35,7 @@ public class GameManager : MonoBehaviour
     public event Action<CatData> OnCatReleased;
     public event Action<int> OnCoinsChanged;
     public event Action<int> OnHeartsChanged;
+    public event Action<RoomData> OnRoomChanged;
 
     void Awake()
     {
@@ -113,6 +117,13 @@ public class GameManager : MonoBehaviour
         Debug.Log($"💰 Coins: {profile.coins} | ❤️ Hearts: {profile.hearts}");
         Debug.Log($"🐱 Cats owned: {profile.GetTotalCatCount()}");
 
+        if (string.IsNullOrEmpty(playerProfile.activeRoomId))
+        {
+            playerProfile.activeRoomId = playerProfile.GetFirstUnlockedRoomId();
+        }
+
+        NotifyActiveRoomChanged();
+
         // Process offline progression
         StartCoroutine(ProcessOfflineRewards());
     }
@@ -140,6 +151,9 @@ public class GameManager : MonoBehaviour
 
             OnHeartsChanged?.Invoke(playerProfile.hearts);
         }
+
+        // Spawn all existing cats in scene
+        SpawnAllCats();
 
         // Check if player has no cats - trigger adoption flow
         if (playerProfile.GetTotalCatCount() == 0)
@@ -179,6 +193,7 @@ public class GameManager : MonoBehaviour
             foreach (var cat in playerProfile.cats.Values)
             {
                 UpdateCatStats(cat);
+                UpdateCatGameObject(cat);
             }
 
             // Update litter boxes
@@ -329,10 +344,26 @@ public class GameManager : MonoBehaviour
         List<CatState> possibleStates = new List<CatState>
         {
             CatState.Idle,
-            CatState.Grooming,
+            CatState.Idle, // Double weight for idle - cats should chill more
+            CatState.Idle, // Triple weight - they're cats!
             CatState.Exploring,
             CatState.Watching
         };
+
+        // Check if grooming is available (cooldown: 5-10 minutes)
+        long now = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        long timeSinceLastGroom = cat.lastGroomTime > 0 ? (now - cat.lastGroomTime) : long.MaxValue;
+        float minutesSinceGroom = timeSinceLastGroom / (1000f * 60f);
+        
+        if (minutesSinceGroom > 5f) // At least 5 minutes since last groom
+        {
+            possibleStates.Add(CatState.Grooming);
+            // Lazy cats groom more often
+            if (cat.personality == CatPersonality.Lazy && minutesSinceGroom > 3f)
+            {
+                possibleStates.Add(CatState.Grooming);
+            }
+        }
 
         // Personality influences behavior
         switch (cat.personality)
@@ -347,11 +378,24 @@ public class GameManager : MonoBehaviour
                 break;
             case CatPersonality.Lazy:
                 possibleStates.Add(CatState.Idle);
-                possibleStates.Add(CatState.Grooming);
+                possibleStates.Add(CatState.Idle); // Lazy cats prefer idle
+                // Add grooming if available
+                if (minutesSinceGroom > 3f)
+                {
+                    possibleStates.Add(CatState.Grooming);
+                }
                 break;
         }
 
-        cat.currentState = possibleStates[UnityEngine.Random.Range(0, possibleStates.Count)];
+        CatState newState = possibleStates[UnityEngine.Random.Range(0, possibleStates.Count)];
+        
+        // Track grooming time
+        if (newState == CatState.Grooming)
+        {
+            cat.lastGroomTime = now;
+        }
+        
+        cat.currentState = newState;
 
         Debug.Log($"🐾 {cat.name} is now {cat.currentState}");
 
@@ -361,10 +405,65 @@ public class GameManager : MonoBehaviour
     #region Player Actions
 
     /// <summary>
+    /// Set the room that should be active in the world
+    /// </summary>
+    public bool SetActiveRoom(string roomId, bool forceNotify = false)
+    {
+        if (playerProfile == null || string.IsNullOrEmpty(roomId)) return false;
+        if (!playerProfile.rooms.ContainsKey(roomId))
+        {
+            Debug.LogWarning($"Active room change failed. Unknown room id: {roomId}");
+            return false;
+        }
+
+        var room = playerProfile.rooms[roomId];
+        if (!room.unlocked)
+        {
+            Debug.LogWarning($"Active room change failed. Room locked: {room.displayName}");
+            return false;
+        }
+
+        if (playerProfile.activeRoomId == roomId && !forceNotify)
+        {
+            return true;
+        }
+
+        playerProfile.activeRoomId = roomId;
+        NotifyActiveRoomChanged();
+        SaveGameState();
+        return true;
+    }
+
+    void NotifyActiveRoomChanged()
+    {
+        if (playerProfile == null) return;
+        var activeRoom = playerProfile.GetActiveRoom();
+        OnRoomChanged?.Invoke(activeRoom);
+        if (activeRoom != null)
+        {
+            Debug.Log($"🏠 Active room set to {activeRoom.displayName} ({activeRoom.id})");
+        }
+    }
+
+    /// <summary>
     /// Adopt a cat from adoption center
     /// </summary>
     public bool AdoptCat(CatData cat, string targetRoomId, int cost)
     {
+        // Ensure player profile exists (create default if needed for testing)
+        if (playerProfile == null)
+        {
+            Debug.LogWarning("PlayerProfile is null! Creating default profile for testing...");
+            playerProfile = CreateDefaultPlayerProfile();
+        }
+
+        // Debug: Check room exists
+        Debug.Log($"🔍 Checking adoption - Room '{targetRoomId}' exists: {playerProfile.rooms.ContainsKey(targetRoomId)}");
+        if (playerProfile.rooms.Count > 0)
+        {
+            Debug.Log($"🔍 Available rooms: {string.Join(", ", playerProfile.rooms.Keys)}");
+        }
+
         if (!playerProfile.CanAdoptCat())
         {
             Debug.LogWarning("Cannot adopt: room limit reached");
@@ -378,6 +477,40 @@ public class GameManager : MonoBehaviour
             return false;
         }
 
+        // Ensure room exists before adopting (use centralized room ID)
+        // If targetRoomId doesn't match a known room ID, try to find by type or use StarterApartment
+        if (!playerProfile.rooms.ContainsKey(targetRoomId))
+        {
+            // Try to find a room by matching against known room IDs
+            string normalizedRoomId = RoomIds.GetRoomId(RoomType.StarterApartment);
+            
+            // Check if it's a known room ID constant
+            if (targetRoomId == RoomIds.StarterApartment || targetRoomId == "starter_apartment")
+                normalizedRoomId = RoomIds.StarterApartment;
+            else if (targetRoomId == RoomIds.LivingRoom || targetRoomId == "living_room")
+                normalizedRoomId = RoomIds.LivingRoom;
+            else if (targetRoomId == RoomIds.GardenPatio || targetRoomId == "garden_patio")
+                normalizedRoomId = RoomIds.GardenPatio;
+            else if (targetRoomId == RoomIds.Bedroom)
+                normalizedRoomId = RoomIds.Bedroom;
+            else if (targetRoomId == RoomIds.CatCafe || targetRoomId == "cat_cafe")
+                normalizedRoomId = RoomIds.CatCafe;
+            else if (targetRoomId == RoomIds.LuxuryPenthouse || targetRoomId == "luxury_penthouse")
+                normalizedRoomId = RoomIds.LuxuryPenthouse;
+            
+            if (!playerProfile.rooms.ContainsKey(normalizedRoomId))
+            {
+                Debug.LogWarning($"⚠️ Room '{targetRoomId}' does not exist! Creating Starter Apartment...");
+                var newRoom = RoomConfig.CreateRoom(RoomType.StarterApartment);
+                newRoom.unlocked = true;
+                newRoom.unlockedAt = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                playerProfile.rooms[normalizedRoomId] = newRoom;
+                Debug.Log($"✅ Created missing room: {normalizedRoomId}");
+            }
+            
+            targetRoomId = normalizedRoomId;
+        }
+
         // Deduct cost
         playerProfile.hearts -= cost;
         OnHeartsChanged?.Invoke(playerProfile.hearts);
@@ -388,6 +521,26 @@ public class GameManager : MonoBehaviour
         if (success)
         {
             Debug.Log($"🎉 Adopted {cat.name}! Welcome home!");
+            
+            // Spawn cat in scene
+            GameObject catObject = SpawnCatInScene(cat);
+            
+            // Notify camera to focus on new cat (if auto-focus enabled)
+            if (catObject != null)
+            {
+                // Find camera controller if not assigned
+                if (cameraController == null)
+                {
+                    cameraController = FindObjectOfType<CameraController>();
+                }
+                
+                if (cameraController != null && cameraController.autoFocusOnAdopt)
+                {
+                    cameraController.OnCatAdopted(catObject);
+                    Debug.Log($"📷 Camera focusing on newly adopted cat: {cat.name}");
+                }
+            }
+
             OnCatAdopted?.Invoke(cat);
 
             // Save
@@ -395,8 +548,128 @@ public class GameManager : MonoBehaviour
 
             return true;
         }
+        else
+        {
+            Debug.LogError($"❌ Adoption failed! Reasons:");
+            Debug.LogError($"  - CanAdoptCat: {playerProfile.CanAdoptCat()}");
+            Debug.LogError($"  - Room exists: {playerProfile.rooms.ContainsKey(targetRoomId)}");
+            if (playerProfile.rooms.ContainsKey(targetRoomId))
+            {
+                var room = playerProfile.rooms[targetRoomId];
+                Debug.LogError($"  - Room unlocked: {room.unlocked}");
+                int catsInRoom = playerProfile.cats.Values.Count(c => c.currentRoom == targetRoomId);
+                Debug.LogError($"  - Cats in room: {catsInRoom}/{room.maxCats}");
+            }
+        }
 
         return false;
+    }
+
+    /// <summary>
+    /// Spawn cat GameObject in the scene
+    /// </summary>
+    GameObject SpawnCatInScene(CatData cat)
+    {
+        if (catPrefab == null)
+        {
+            Debug.LogWarning("Cat Prefab not assigned in GameManager! Cannot spawn cat.");
+            return null;
+        }
+
+        // Check if already spawned
+        if (activeCatObjects.ContainsKey(cat.id))
+        {
+            Debug.LogWarning($"Cat {cat.name} already spawned!");
+            return activeCatObjects[cat.id];
+        }
+
+        // Instantiate cat
+        GameObject catInstance = Instantiate(catPrefab, catSpawnPosition, Quaternion.identity);
+        catInstance.name = cat.name;
+
+        // Initialize components
+        AnimalController animalController = catInstance.GetComponent<AnimalController>();
+        if (animalController != null)
+        {
+            animalController.Initialize(cat);
+            animalController.SetState(cat.currentState);
+        }
+
+        MovementController movementController = catInstance.GetComponent<MovementController>();
+        if (movementController != null)
+        {
+            movementController.Initialize(cat);
+            Debug.Log($"✅ MovementController initialized for {cat.name}");
+        }
+        else
+        {
+            Debug.LogError($"❌ MovementController not found on cat prefab! Cat won't be able to move.");
+        }
+
+        // Store reference
+        activeCatObjects[cat.id] = catInstance;
+
+        Debug.Log($"🐱 Spawned {cat.name} in scene at {catSpawnPosition}");
+        
+        return catInstance;
+    }
+
+    /// <summary>
+    /// Spawn all cats that should be active
+    /// </summary>
+    void SpawnAllCats()
+    {
+        if (playerProfile == null || playerProfile.cats == null) return;
+
+        foreach (var cat in playerProfile.cats.Values)
+        {
+            if (!activeCatObjects.ContainsKey(cat.id))
+            {
+                SpawnCatInScene(cat);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Update cat GameObject state to match CatData
+    /// </summary>
+    void UpdateCatGameObject(CatData cat)
+    {
+        if (!activeCatObjects.ContainsKey(cat.id)) return;
+
+        GameObject catObj = activeCatObjects[cat.id];
+        AnimalController animController = catObj.GetComponent<AnimalController>();
+        MovementController moveController = catObj.GetComponent<MovementController>();
+
+        if (animController != null)
+        {
+            animController.SetState(cat.currentState);
+        }
+    }
+
+    /// <summary>
+    /// Create a default player profile for testing (when Firebase isn't initialized)
+    /// </summary>
+    PlayerProfile CreateDefaultPlayerProfile()
+    {
+        var profile = new PlayerProfile();
+        profile.displayName = "Test Player";
+        profile.coins = 1000;
+        profile.hearts = 500;
+        profile.prestigePoints = 0;
+
+        // Create starter room using RoomConfig (ID will be normalized automatically)
+        var starterRoom = RoomConfig.CreateRoom(RoomType.StarterApartment);
+        starterRoom.unlocked = true;
+        starterRoom.unlockedAt = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // RoomConfig now generates "starter_apartment" automatically
+        profile.rooms[starterRoom.id] = starterRoom;
+        profile.activeRoomId = starterRoom.id;
+        
+        Debug.Log($"✅ Created starter room: {starterRoom.id} (unlocked: {starterRoom.unlocked}, maxCats: {starterRoom.maxCats})");
+
+        Debug.Log("✅ Created default test player profile");
+        return profile;
     }
 
     /// <summary>
@@ -493,7 +766,7 @@ public class GameManager : MonoBehaviour
         // Update UI
         if (uiManager != null)
         {
-            uiManager.UpdateCatStats(cat);
+            uiManager.UpdateCatStatsDisplay(cat);
         }
 
         // Save state
@@ -586,6 +859,8 @@ public class GameManager : MonoBehaviour
 
     public PlayerProfile PlayerProfile => playerProfile;
     public bool IsGameActive => gameActive;
+    public string ActiveRoomId => playerProfile?.activeRoomId;
+    public RoomData ActiveRoom => playerProfile?.GetActiveRoom();
 
     #endregion
 }

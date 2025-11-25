@@ -54,7 +54,7 @@ public class DevTools : MonoBehaviour
             CatSource.Generated
         );
 
-        bool success = gameManager.AdoptCat(cat, "starter_apartment", 50);
+        bool success = gameManager.AdoptCat(cat, RoomIds.StarterApartment, 50);
 
         if (success)
         {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -32,6 +33,7 @@ public class PlayerProfile
 
     // Rooms
     public Dictionary<string, RoomData> rooms = new Dictionary<string, RoomData>();
+    public string activeRoomId;
 
     // Stats tracking
     public PlayerStats stats = new PlayerStats();
@@ -70,6 +72,7 @@ public class PlayerProfile
 
         // Give starter furniture (basic necessities)
         AddStarterFurniture(starterRoom);
+        activeRoomId = starterRoom.id;
     }
 
     // Parameterless constructor for deserialization
@@ -80,15 +83,50 @@ public class PlayerProfile
     /// </summary>
     private void AddStarterFurniture(RoomData room)
     {
-        // Essential items for cat care
+        if (!TryAddFurnitureFromCatalog(room))
+        {
+            AddLegacyStarterFurniture(room);
+        }
+
+        room.litterBox.Clean();
+    }
+
+    bool TryAddFurnitureFromCatalog(RoomData room)
+    {
+        var catalog = FurnitureCatalogProvider.Catalog;
+        if (catalog == null || catalog.Entries == null) return false;
+
+        bool placedAny = false;
+        foreach (var definition in catalog.Entries)
+        {
+            if (definition == null || !definition.includeInStarterSet || definition.starterPlacements == null) continue;
+
+            foreach (var placement in definition.starterPlacements)
+            {
+                if (placement == null) continue;
+                if (placement.roomType != room.roomType) continue;
+
+                var furniture = new PlacedFurniture(definition.furnitureId, definition.furnitureType, placement.localPosition);
+                furniture.rotation = Quaternion.Euler(placement.localEuler);
+                furniture.displayName = definition.displayName;
+                furniture.setName = string.IsNullOrEmpty(definition.defaultSetName) ? null : definition.defaultSetName;
+                furniture.generationBonus = definition.defaultGenerationBonus;
+                furniture.addressableKey = definition.addressableKey;
+                room.furniture.Add(furniture);
+                placedAny = true;
+            }
+        }
+
+        return placedAny;
+    }
+
+    void AddLegacyStarterFurniture(RoomData room)
+    {
         room.furniture.Add(new PlacedFurniture("litter_box_basic", FurnitureType.LitterBox, new Vector3(0, 0, 0)));
         room.furniture.Add(new PlacedFurniture("food_bowl_basic", FurnitureType.FoodBowl, new Vector3(1, 0, 0)));
         room.furniture.Add(new PlacedFurniture("water_bowl_basic", FurnitureType.WaterBowl, new Vector3(1.5f, 0, 0)));
         room.furniture.Add(new PlacedFurniture("bed_basic", FurnitureType.Bed, new Vector3(-2, 0, 0)));
         room.furniture.Add(new PlacedFurniture("toy_ball", FurnitureType.Toy, new Vector3(2, 0, 1)));
-
-        // Initialize litter box as clean
-        room.litterBox.Clean();
     }
 
     /// <summary>
@@ -119,6 +157,45 @@ public class PlayerProfile
     public bool CanAdoptCat()
     {
         return GetTotalCatCount() < GetMaxCatCapacity();
+    }
+
+    public RoomData GetActiveRoom()
+    {
+        if (rooms == null || rooms.Count == 0) return null;
+
+        if (string.IsNullOrEmpty(activeRoomId) || !rooms.ContainsKey(activeRoomId))
+        {
+            activeRoomId = GetFirstUnlockedRoomId();
+        }
+
+        if (string.IsNullOrEmpty(activeRoomId)) return null;
+
+        rooms.TryGetValue(activeRoomId, out var room);
+        return room;
+    }
+
+    public string GetFirstUnlockedRoomId()
+    {
+        if (rooms == null || rooms.Count == 0) return null;
+
+        var unlockedRoom = rooms.Values.FirstOrDefault(r => r.unlocked);
+        if (unlockedRoom != null) return unlockedRoom.id;
+
+        return rooms.Values.First().id;
+    }
+
+    public bool SetActiveRoom(string roomId)
+    {
+        if (string.IsNullOrEmpty(roomId) || rooms == null) return false;
+        if (!rooms.ContainsKey(roomId)) return false;
+
+        var room = rooms[roomId];
+        if (!room.unlocked) return false;
+
+        if (activeRoomId == roomId) return false;
+
+        activeRoomId = roomId;
+        return true;
     }
 
     /// <summary>

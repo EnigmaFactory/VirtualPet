@@ -84,7 +84,7 @@ public class CatData
     // Gameplay flags
     public bool isHardcore = false;         // Opted into runaway risk
     public CatState currentState = CatState.Idle;
-    public string currentRoom = "starter_apartment";
+    public string currentRoom = RoomIds.StarterApartment;
 
     // Timestamps (Unix milliseconds for Firebase compatibility)
     public long adoptedAt;                  // When player got this cat
@@ -97,6 +97,9 @@ public class CatData
     public bool isSleeping = false;
     public long sleepStartTime;             // When current nap started
     public int sleepCycleHours = 14;        // Personality-dependent (12-16)
+    
+    // Grooming cooldown
+    public long lastGroomTime = 0;          // When cat last groomed (to prevent too frequent grooming)
 
     // Preferences (learned over time)
     public string preferredFood;            // e.g., "wet_food", "dry_food"
