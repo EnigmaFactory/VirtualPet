@@ -12,7 +12,7 @@ public class CameraController : MonoBehaviour
     [Header("Camera Modes")]
     [SerializeField] private CameraMode currentMode = CameraMode.Orbit;
     [SerializeField] private Transform focusTarget; // Current cat or room center
-    [SerializeField] private bool autoFocusOnAdopt = true;
+    public bool autoFocusOnAdopt = true;
 
     [Header("Orbit Settings")]
     [SerializeField] private float orbitDistance = 5f;
@@ -26,10 +26,13 @@ public class CameraController : MonoBehaviour
     [SerializeField] private float focusHeight = 1.5f;
     [SerializeField] private float focusFollowSpeed = 5f;
     [SerializeField] private Vector3 focusOffset = Vector3.zero;
+    
+    [Header("Orbit Settings - Offset")]
+    [SerializeField] private Vector3 orbitOffset = new Vector3(0f, 0.3f, 0f); // Offset from target position (e.g., to focus on cat's body instead of feet)
 
     [Header("Zoom Settings")]
-    [SerializeField] private float minDistance = 2f;
-    [SerializeField] private float maxDistance = 10f;
+    [SerializeField] private float minDistance = 0.5f; // Allow very close to cat
+    [SerializeField] private float maxDistance = 6f; // Closer max distance
     [SerializeField] private float zoomSpeed = 2f;
     [SerializeField] private float zoomSmoothTime = 0.2f;
     private float zoomVelocity = 0f;
@@ -274,8 +277,8 @@ public class CameraController : MonoBehaviour
 
     void UpdateOrbitMode()
     {
-        // Orbit around focus target (or room center)
-        Vector3 center = focusTarget != null ? focusTarget.position : catsCenter;
+        // Orbit around focus target (or room center) with offset
+        Vector3 center = focusTarget != null ? focusTarget.position + orbitOffset : catsCenter;
 
         // Calculate position from angle and distance
         float radians = orbitAngle * Mathf.Deg2Rad;
@@ -391,7 +394,8 @@ public class CameraController : MonoBehaviour
     public void FocusOnTarget(Transform target)
     {
         focusTarget = target;
-        SetMode(CameraMode.Focus);
+        // Keep in Orbit mode - just orbit around the target, don't follow it
+        SetMode(CameraMode.Orbit);
     }
 
     public void FocusOnNearestCat()

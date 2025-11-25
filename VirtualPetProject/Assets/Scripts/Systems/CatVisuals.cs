@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
 /// Manages cat visual representation (model, textures, body type)

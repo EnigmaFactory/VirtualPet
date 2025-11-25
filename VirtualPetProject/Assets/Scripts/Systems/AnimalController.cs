@@ -14,11 +14,39 @@ public class AnimalController : MonoBehaviour
     [SerializeField] private AnimationClip[] idleVariations; // Multiple idle poses
     [SerializeField] private AnimationClip walkClip;
     [SerializeField] private AnimationClip runClip;
-    [SerializeField] private AnimationClip sitClip;
-    [SerializeField] private AnimationClip sitToStandClip;
-    [SerializeField] private AnimationClip layDownClip;
-    [SerializeField] private AnimationClip sleepClip;
-    [SerializeField] private AnimationClip[] sleepVariations; // Breathing, twitching
+    [Header("Sit Animations")]
+    [SerializeField] private AnimationClip sitStartClip; // Stand → Sit (transition)
+    [SerializeField] private AnimationClip[] sitClips; // Sit loops (loop_1, loop_2, loop_3, loop_4)
+    [SerializeField] private AnimationClip sitEndClip; // Sit → Stand (transition)
+    
+    [Header("Lie Belly (Awake - for chilling)")]
+    [SerializeField] private AnimationClip lieBellyStartClip; // Stand → Lie on belly (transition)
+    [SerializeField] private AnimationClip[] lieBellyClips; // Lie on belly awake loops (loop_1, loop_2, loop_3)
+    [SerializeField] private AnimationClip lieBellyEndClip; // Lie on belly → Stand (transition)
+    
+    [Header("Lie Side (Awake - for chilling)")]
+    [SerializeField] private AnimationClip lieSideStartClip; // Stand → Lie on side (transition)
+    [SerializeField] private AnimationClip[] lieSideClips; // Lie on side awake loops (loop_1, loop_2)
+    [SerializeField] private AnimationClip lieSideEndClip; // Lie on side → Stand (transition)
+    
+    [Header("Sleep - Belly")]
+    [SerializeField] private AnimationClip lieBellySleepStartClip; // Lie belly awake → Lie belly sleep (transition)
+    [SerializeField] private AnimationClip[] lieBellySleepClips; // Lie belly sleep loops
+    [SerializeField] private AnimationClip lieBellySleepEndClip; // Lie belly sleep → Stand (transition)
+    
+    [Header("Sleep - Side")]
+    [SerializeField] private AnimationClip lieSideSleepStartClip; // Lie side awake → Lie side sleep (transition)
+    [SerializeField] private AnimationClip[] lieSideSleepClips; // Lie side sleep loops
+    [SerializeField] private AnimationClip lieSideSleepEndClip; // Lie side sleep → Stand (transition)
+    
+    // Current lying state tracking
+    private bool isLyingBelly = false;
+    private bool isLyingSide = false;
+    private int currentLieVariationIndex = 0;
+    
+    // Current sitting state tracking
+    private bool isSitting = false;
+    private int currentSitVariationIndex = 0;
     [SerializeField] private AnimationClip groomClip;
     [SerializeField] private AnimationClip stretchClip;
     [SerializeField] private AnimationClip jumpClip;
@@ -26,6 +54,28 @@ public class AnimalController : MonoBehaviour
     [SerializeField] private AnimationClip[] playClips; // Pounce, bat, chase
     [SerializeField] private AnimationClip eatClip;
     [SerializeField] private AnimationClip drinkClip;
+
+    [Header("Petting/Caress Animations")]
+    [SerializeField] private AnimationClip caressIdleClip; // Being petted while standing
+    [SerializeField] private AnimationClip caressSitClip; // Being petted while sitting
+    [SerializeField] private AnimationClip caressLieClip; // Being petted while lying
+
+    [Header("Directional Movement (Optional)")]
+    [SerializeField] private AnimationClip walkLeftClip;
+    [SerializeField] private AnimationClip walkRightClip;
+    [SerializeField] private AnimationClip walkBackClip;
+    [SerializeField] private AnimationClip runLeftClip;
+    [SerializeField] private AnimationClip runRightClip;
+
+    [Header("Scratching Animations")]
+    [SerializeField] private AnimationClip scratchHorizClip; // Horizontal scratching
+    [SerializeField] private AnimationClip scratchVertClip; // Vertical scratching
+
+    [Header("Transition Animations")]
+    [SerializeField] private AnimationClip transSitToLieBellyClip;
+    [SerializeField] private AnimationClip transSitToLieSideClip;
+    [SerializeField] private AnimationClip transLieBellyToSitClip;
+    [SerializeField] private AnimationClip transLieSideToSitClip;
 
     [Header("Blend Settings")]
     [SerializeField] private float defaultBlendTime = 0.3f;
@@ -44,6 +94,7 @@ public class AnimalController : MonoBehaviour
     [SerializeField] private CatState currentState = CatState.Idle;
     [SerializeField] private string currentAnimationName;
     [SerializeField] private float currentSpeed = 0f; // 0 = idle, 1 = walk, 2 = run
+    [SerializeField] private float currentTurnDirection = 0f; // -1 = left, 0 = forward, 1 = right
 
     // Components
     private Animation animComponent;
@@ -55,6 +106,9 @@ public class AnimalController : MonoBehaviour
     private float idleVariationTimer = 0f;
     private float nextIdleVariation = 5f;
     private bool isTransitioning = false;
+    private bool isStateLocked = false; // Prevent state changes during animations
+    private float stateLockTimer = 0f;
+    private float minStateDuration = 2f; // Minimum time to stay in a state
 
     // Procedural animation state
     private float breathingPhase = 0f;
@@ -78,6 +132,16 @@ public class AnimalController : MonoBehaviour
 
     void Update()
     {
+        // Update state lock timer
+        if (isStateLocked)
+        {
+            stateLockTimer -= Time.deltaTime;
+            if (stateLockTimer <= 0f)
+            {
+                isStateLocked = false;
+            }
+        }
+
         // Update procedural animations
         if (enableBreathing)
             UpdateBreathing();
@@ -92,6 +156,12 @@ public class AnimalController : MonoBehaviour
         if (currentState == CatState.Idle)
         {
             UpdateIdleVariations();
+        }
+
+        // Handle playing state - cycle through animations
+        if (currentState == CatState.Playing)
+        {
+            UpdatePlayingState();
         }
 
         // Update current speed for blend tree-like behavior
@@ -114,29 +184,184 @@ public class AnimalController : MonoBehaviour
     public void SetState(CatState newState)
     {
         if (currentState == newState) return;
+        
+        // Prevent rapid state changes
+        if (isStateLocked && stateLockTimer > 0f)
+        {
+            Debug.Log($"🔒 State locked, ignoring change: {currentState} → {newState}");
+            return;
+        }
 
         CatState previousState = currentState;
         currentState = newState;
+        isStateLocked = true;
+        stateLockTimer = minStateDuration;
 
         switch (newState)
         {
             case CatState.Idle:
-                PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+                // Idle can be standing or sitting - check if we should sit
+                if (Random.value < 0.3f && sitClips != null && sitClips.Length > 0)
+                {
+                    // 30% chance to sit when going idle
+                    SetSitting();
+                }
+                else
+                {
+                    // Stand idle - will cycle through idle variations
+                    PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+                }
                 break;
 
             case CatState.Sleeping:
-                // Transition: Idle -> Lay Down -> Sleep
+                // Sleep flow: Choose belly or side → Start → Sleep loop → End when waking
                 if (previousState != CatState.Sleeping)
                 {
-                    PlayAnimation(layDownClip, slowBlendTime, WrapMode.Once, () =>
+                    // Decide belly or side (random or based on current pose)
+                    bool sleepOnBelly = isLyingBelly || (!isLyingSide && Random.value < 0.5f);
+                    
+                    if (sleepOnBelly)
                     {
-                        PlayAnimation(GetRandomSleepAnimation(), slowBlendTime, WrapMode.Loop);
-                    });
+                        // Belly sleep: Start → Sleep start → Sleep loop
+                        if (isLyingBelly && lieBellySleepStartClip != null)
+                        {
+                            // Already lying belly awake → transition to sleep
+                            PlayAnimation(lieBellySleepStartClip, slowBlendTime, WrapMode.Once, () =>
+                            {
+                                PlayAnimation(GetRandomBellySleepAnimation(), slowBlendTime, WrapMode.Loop);
+                            });
+                        }
+                        else
+                        {
+                            // Stand → Lie belly start → Lie belly sleep start → Sleep loop
+                            // First lie down awake, then transition to sleep
+                            if (lieBellyStartClip != null)
+                            {
+                                PlayAnimation(lieBellyStartClip, slowBlendTime, WrapMode.Once, () =>
+                                {
+                                    // Play a brief awake lie loop, then transition to sleep
+                                    if (lieBellyClips != null && lieBellyClips.Length > 0)
+                                    {
+                                        PlayAnimation(lieBellyClips[0], slowBlendTime * 0.5f, WrapMode.Once, () =>
+                                        {
+                                            if (lieBellySleepStartClip != null)
+                                            {
+                                                PlayAnimation(lieBellySleepStartClip, slowBlendTime, WrapMode.Once, () =>
+                                                {
+                                                    PlayAnimation(GetRandomBellySleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                                });
+                                            }
+                                            else
+                                            {
+                                                PlayAnimation(GetRandomBellySleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                            }
+                                        });
+                                    }
+                                    else if (lieBellySleepStartClip != null)
+                                    {
+                                        PlayAnimation(lieBellySleepStartClip, slowBlendTime, WrapMode.Once, () =>
+                                        {
+                                            PlayAnimation(GetRandomBellySleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                        });
+                                    }
+                                    else
+                                    {
+                                        PlayAnimation(GetRandomBellySleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                PlayAnimation(GetRandomBellySleepAnimation(), slowBlendTime, WrapMode.Loop);
+                            }
+                        }
+                        isLyingBelly = true;
+                        isLyingSide = false;
+                    }
+                    else
+                    {
+                        // Side sleep: Start → Sleep start → Sleep loop
+                        if (isLyingSide && lieSideSleepStartClip != null)
+                        {
+                            // Already lying side awake → transition to sleep
+                            PlayAnimation(lieSideSleepStartClip, slowBlendTime, WrapMode.Once, () =>
+                            {
+                                PlayAnimation(GetRandomSideSleepAnimation(), slowBlendTime, WrapMode.Loop);
+                            });
+                        }
+                        else
+                        {
+                            // Stand → Lie side start → Lie side sleep start → Sleep loop
+                            // First lie down awake, then transition to sleep
+                            if (lieSideStartClip != null)
+                            {
+                                PlayAnimation(lieSideStartClip, slowBlendTime, WrapMode.Once, () =>
+                                {
+                                    // Play a brief awake lie loop, then transition to sleep
+                                    if (lieSideClips != null && lieSideClips.Length > 0)
+                                    {
+                                        PlayAnimation(lieSideClips[0], slowBlendTime * 0.5f, WrapMode.Once, () =>
+                                        {
+                                            if (lieSideSleepStartClip != null)
+                                            {
+                                                PlayAnimation(lieSideSleepStartClip, slowBlendTime, WrapMode.Once, () =>
+                                                {
+                                                    PlayAnimation(GetRandomSideSleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                                });
+                                            }
+                                            else
+                                            {
+                                                PlayAnimation(GetRandomSideSleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                            }
+                                        });
+                                    }
+                                    else if (lieSideSleepStartClip != null)
+                                    {
+                                        PlayAnimation(lieSideSleepStartClip, slowBlendTime, WrapMode.Once, () =>
+                                        {
+                                            PlayAnimation(GetRandomSideSleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                        });
+                                    }
+                                    else
+                                    {
+                                        PlayAnimation(GetRandomSideSleepAnimation(), slowBlendTime, WrapMode.Loop);
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                PlayAnimation(GetRandomSideSleepAnimation(), slowBlendTime, WrapMode.Loop);
+                            }
+                        }
+                        isLyingSide = true;
+                        isLyingBelly = false;
+                    }
                 }
                 break;
 
             case CatState.Grooming:
-                PlayAnimation(groomClip, defaultBlendTime, WrapMode.Loop);
+                // Play grooming animation for full cycle (stand -> sit -> lick foot -> stand)
+                // This is a one-shot animation that shouldn't repeat frequently
+                if (groomClip != null)
+                {
+                    // Unlock state after animation completes (grooming is a full cycle)
+                    isStateLocked = true;
+                    stateLockTimer = groomClip.length + 1f; // Lock for animation duration + 1 second
+                    
+                    PlayAnimation(groomClip, defaultBlendTime, WrapMode.Once, () =>
+                    {
+                        // After grooming completes, return to idle
+                        if (currentState == CatState.Grooming)
+                        {
+                            isStateLocked = false; // Unlock state
+                            SetState(CatState.Idle);
+                        }
+                    });
+                }
+                else
+                {
+                    PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+                }
                 break;
 
             case CatState.Eating:
@@ -144,7 +369,8 @@ public class AnimalController : MonoBehaviour
                 break;
 
             case CatState.Playing:
-                PlayRandomPlayAnimation();
+                // Cycle through play animations instead of looping one
+                PlayNextPlayAnimation();
                 break;
 
             case CatState.Exploring:
@@ -153,13 +379,24 @@ public class AnimalController : MonoBehaviour
                 break;
 
             case CatState.Watching:
-                // Sit and watch
-                PlayAnimation(sitClip, defaultBlendTime, WrapMode.Loop);
+                // Sit and watch - use sit variations
+                if (!isSitting)
+                {
+                    SetSitting();
+                }
+                else
+                {
+                    // Already sitting - just ensure we're playing a sit loop
+                    if (sitClips != null && sitClips.Length > 0 && currentClip != sitClips[currentSitVariationIndex])
+                    {
+                        PlayAnimation(sitClips[currentSitVariationIndex], defaultBlendTime, WrapMode.Loop);
+                    }
+                }
                 break;
 
             case CatState.BeingPetted:
-                // Stay in current pose but add purring animation layer
-                // (Can be additive animation if you have it)
+                // Play appropriate caress animation based on current pose
+                PlayCaressAnimation();
                 break;
         }
 
@@ -171,7 +408,18 @@ public class AnimalController : MonoBehaviour
     /// </summary>
     public void SetMovementSpeed(float speed)
     {
-        currentSpeed = Mathf.Clamp01(speed);
+        // Gradually ramp up speed instead of instant change
+        currentSpeed = Mathf.Lerp(currentSpeed, Mathf.Clamp01(speed), Time.deltaTime * 5f);
+    }
+
+    /// <summary>
+    /// Set turn direction for directional animations (-1 = left, 0 = forward, 1 = right)
+    /// </summary>
+    public void SetTurnDirection(float turnDirection)
+    {
+        // Store turn direction for directional animation selection
+        // This will be used in UpdateMovementBlending
+        currentTurnDirection = Mathf.Clamp(turnDirection, -1f, 1f);
     }
 
     /// <summary>
@@ -198,18 +446,157 @@ public class AnimalController : MonoBehaviour
                 break;
 
             case "sit":
-                PlayAnimation(sitClip, defaultBlendTime, WrapMode.Loop);
+                SetSitting();
                 break;
 
             case "stand":
-                if (currentClip == sitClip && sitToStandClip != null)
-                {
-                    PlayAnimation(sitToStandClip, quickBlendTime, WrapMode.Once, () =>
-                    {
-                        PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
-                    });
-                }
+                GetUpFromSitting();
                 break;
+
+            case "scratch_horiz":
+                PlayAnimation(scratchHorizClip ?? groomClip, defaultBlendTime, WrapMode.Loop);
+                break;
+
+            case "scratch_vert":
+                PlayAnimation(scratchVertClip ?? groomClip, defaultBlendTime, WrapMode.Loop);
+                break;
+
+            case "scratch":
+                // Randomly choose horizontal or vertical
+                if (Random.value < 0.5f && scratchHorizClip != null)
+                    PlayAnimation(scratchHorizClip, defaultBlendTime, WrapMode.Loop);
+                else if (scratchVertClip != null)
+                    PlayAnimation(scratchVertClip, defaultBlendTime, WrapMode.Loop);
+                else
+                    PlayAnimation(groomClip, defaultBlendTime, WrapMode.Loop);
+                break;
+        }
+    }
+
+    #region Sit Methods
+
+    /// <summary>
+    /// Set cat to sit down
+    /// Uses: Stand → Sit_start → Sit_loop variations
+    /// </summary>
+    public void SetSitting()
+    {
+        if (sitClips == null || sitClips.Length == 0) return;
+        
+        if (isSitting)
+        {
+            // Already sitting - just cycle to next variation
+            CycleSitVariation();
+            return;
+        }
+        
+        // Transition: Stand → Sit
+        if (sitStartClip != null)
+        {
+            PlayAnimation(sitStartClip, defaultBlendTime, WrapMode.Once, () =>
+            {
+                PlayRandomSitVariation();
+            });
+        }
+        else
+        {
+            PlayRandomSitVariation();
+        }
+        
+        isSitting = true;
+    }
+
+    /// <summary>
+    /// Play a random sit variation (can cycle through different loops)
+    /// </summary>
+    private void PlayRandomSitVariation()
+    {
+        if (sitClips == null || sitClips.Length == 0) return;
+        
+        // Cycle through variations or pick random
+        currentSitVariationIndex = Random.Range(0, sitClips.Length);
+        AnimationClip clip = sitClips[currentSitVariationIndex];
+        
+        if (clip != null)
+        {
+            PlayAnimation(clip, defaultBlendTime, WrapMode.Loop);
+        }
+    }
+
+    /// <summary>
+    /// Cycle to next sit variation (for variety while sitting)
+    /// </summary>
+    public void CycleSitVariation()
+    {
+        if (isSitting && sitClips != null && sitClips.Length > 0)
+        {
+            currentSitVariationIndex = (currentSitVariationIndex + 1) % sitClips.Length;
+            PlayAnimation(sitClips[currentSitVariationIndex], defaultBlendTime, WrapMode.Loop);
+        }
+    }
+
+    /// <summary>
+    /// Get up from sitting position
+    /// Uses: Sit_loop → Sit_end → Stand
+    /// </summary>
+    public void GetUpFromSitting()
+    {
+        if (!isSitting) return;
+        
+        if (sitEndClip != null)
+        {
+            PlayAnimation(sitEndClip, defaultBlendTime, WrapMode.Once, () =>
+            {
+                PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+                isSitting = false;
+            });
+        }
+        else
+        {
+            PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+            isSitting = false;
+        }
+    }
+
+    /// <summary>
+    /// Check if cat is currently sitting
+    /// </summary>
+    public bool IsSitting()
+    {
+        return isSitting;
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Play appropriate caress animation based on current state
+    /// </summary>
+    private void PlayCaressAnimation()
+    {
+        AnimationClip caressClip = null;
+
+        if (currentState == CatState.Sleeping)
+        {
+            caressClip = caressLieClip;
+        }
+        else if (currentState == CatState.Watching || isSitting)
+        {
+            caressClip = caressSitClip;
+        }
+        else
+        {
+            caressClip = caressIdleClip;
+        }
+
+        // Fallback to idle if caress clip not available
+        if (caressClip != null)
+        {
+            PlayAnimation(caressClip, defaultBlendTime, WrapMode.Loop);
+        }
+        else
+        {
+            // Just stay in current animation
+            Debug.Log("Caress animation not assigned, staying in current pose");
         }
     }
 
@@ -228,8 +615,21 @@ public class AnimalController : MonoBehaviour
             return;
         }
 
+        if (animComponent == null)
+        {
+            Debug.LogError("Animation component is null!");
+            return;
+        }
+
         currentClip = clip;
         currentAnimationName = clip.name;
+
+        // Ensure clip is marked as Legacy
+        if (!clip.legacy)
+        {
+            clip.legacy = true;
+            Debug.LogWarning($"Animation clip {clip.name} was not marked as Legacy. Fixed automatically.");
+        }
 
         // Add to animation component if not already there
         if (!animComponent[clip.name])
@@ -284,30 +684,64 @@ public class AnimalController : MonoBehaviour
         }
         else if (currentSpeed < 0.6f)
         {
-            // Walking
-            if (currentClip != walkClip)
+            // Walking - use directional animations when turning
+            AnimationClip targetWalkClip = walkClip;
+            
+            // Use directional animations for any turn (more sensitive threshold)
+            if (Mathf.Abs(currentTurnDirection) > 0.2f)
             {
-                PlayAnimation(walkClip, defaultBlendTime, WrapMode.Loop);
+                // Use directional walk animations
+                if (currentTurnDirection > 0.2f && walkRightClip != null)
+                {
+                    targetWalkClip = walkRightClip;
+                }
+                else if (currentTurnDirection < -0.2f && walkLeftClip != null)
+                {
+                    targetWalkClip = walkLeftClip;
+                }
+            }
+            
+            if (currentClip != targetWalkClip)
+            {
+                PlayAnimation(targetWalkClip, defaultBlendTime, WrapMode.Loop);
             }
 
-            // Speed up/slow down walk animation
-            if (walkClip != null && animComponent[walkClip.name] != null)
+            // Speed up/slow down walk animation - use the actual clip being played
+            AnimationClip clipToSpeed = targetWalkClip ?? walkClip;
+            if (clipToSpeed != null && animComponent[clipToSpeed.name] != null)
             {
-                animComponent[walkClip.name].speed = Mathf.Lerp(0.5f, 1f, currentSpeed / 0.6f);
+                animComponent[clipToSpeed.name].speed = Mathf.Lerp(0.5f, 1f, currentSpeed / 0.6f);
             }
         }
         else
         {
-            // Running
-            if (currentClip != runClip)
+            // Running - use directional run animations when turning
+            AnimationClip targetRunClip = runClip;
+            
+            // Use directional animations for any turn
+            if (Mathf.Abs(currentTurnDirection) > 0.2f)
             {
-                PlayAnimation(runClip, quickBlendTime, WrapMode.Loop);
+                // Use directional run animations
+                if (currentTurnDirection > 0.2f && runRightClip != null)
+                {
+                    targetRunClip = runRightClip;
+                }
+                else if (currentTurnDirection < -0.2f && runLeftClip != null)
+                {
+                    targetRunClip = runLeftClip;
+                }
+            }
+            
+            if (currentClip != targetRunClip)
+            {
+                PlayAnimation(targetRunClip, quickBlendTime, WrapMode.Loop);
             }
 
-            // Speed up run animation with speed
-            if (runClip != null && animComponent[runClip.name] != null)
+            // Speed up run animation with speed - use the actual clip being played
+            AnimationClip clipToSpeed = targetRunClip ?? runClip;
+            if (clipToSpeed != null && animComponent[clipToSpeed.name] != null)
             {
-                animComponent[runClip.name].speed = Mathf.Lerp(1f, 1.5f, (currentSpeed - 0.6f) / 0.4f);
+                animComponent[clipToSpeed.name].speed = Mathf.Lerp(1f, 1.5f, (currentSpeed - 0.6f) / 0.4f);
             }
         }
     }
@@ -318,6 +752,7 @@ public class AnimalController : MonoBehaviour
 
     /// <summary>
     /// Play random idle variation to keep cat looking alive
+    /// More frequent variations for more lively idle behavior
     /// </summary>
     private void UpdateIdleVariations()
     {
@@ -326,16 +761,20 @@ public class AnimalController : MonoBehaviour
         if (idleVariationTimer >= nextIdleVariation)
         {
             idleVariationTimer = 0f;
-            nextIdleVariation = Random.Range(5f, 15f);
+            // More frequent variations: 3-8 seconds instead of 5-15
+            nextIdleVariation = Random.Range(3f, 8f);
 
-            // Random chance to play a variation
-            if (Random.value < 0.5f && idleVariations != null && idleVariations.Length > 0)
+            // Higher chance to play a variation: 70% instead of 50%
+            if (Random.value < 0.7f && idleVariations != null && idleVariations.Length > 0)
             {
                 var variation = idleVariations[Random.Range(0, idleVariations.Length)];
-                PlayAnimation(variation, defaultBlendTime, WrapMode.Once, () =>
+                if (variation != null && idleClip != null) // Check both clips are not null
                 {
-                    PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
-                });
+                    PlayAnimation(variation, defaultBlendTime, WrapMode.Once, () =>
+                    {
+                        PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+                    });
+                }
             }
         }
     }
@@ -344,19 +783,63 @@ public class AnimalController : MonoBehaviour
 
     #region Play Animations
 
+    private int currentPlayIndex = 0;
+    private float playAnimationTimer = 0f;
+    private float playAnimationDuration = 0f;
+
     /// <summary>
-    /// Play random play animation (pounce, bat, etc.)
+    /// Play next play animation in sequence
     /// </summary>
-    private void PlayRandomPlayAnimation()
+    private void PlayNextPlayAnimation()
     {
         if (playClips == null || playClips.Length == 0)
         {
-            PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+            // Fallback to scratch if no play clips
+            if (scratchHorizClip != null)
+            {
+                PlayAnimation(scratchHorizClip, defaultBlendTime, WrapMode.Once, () =>
+                {
+                    // Cycle to next animation
+                    if (currentState == CatState.Playing)
+                    {
+                        PlayNextPlayAnimation();
+                    }
+                });
+                playAnimationDuration = scratchHorizClip.length;
+            }
+            else
+            {
+                PlayAnimation(idleClip, defaultBlendTime, WrapMode.Loop);
+            }
             return;
         }
 
-        var clip = playClips[Random.Range(0, playClips.Length)];
-        PlayAnimation(clip, defaultBlendTime, WrapMode.Loop);
+        // Cycle through play animations
+        var clip = playClips[currentPlayIndex];
+        currentPlayIndex = (currentPlayIndex + 1) % playClips.Length;
+        
+        // Play animation once, then cycle to next
+        PlayAnimation(clip, defaultBlendTime, WrapMode.Once, () =>
+        {
+            // After animation completes, play next one if still in playing state
+            if (currentState == CatState.Playing)
+            {
+                playAnimationTimer = 0f;
+                PlayNextPlayAnimation();
+            }
+        });
+        
+        playAnimationDuration = clip.length;
+        playAnimationTimer = 0f;
+    }
+
+    /// <summary>
+    /// Update playing state - cycle through animations
+    /// </summary>
+    private void UpdatePlayingState()
+    {
+        // Animation cycling is handled by completion callbacks
+        // This is just for any per-frame updates if needed
     }
 
     #endregion
@@ -364,16 +847,27 @@ public class AnimalController : MonoBehaviour
     #region Sleep Variations
 
     /// <summary>
-    /// Get random sleep animation (breathing, twitching, etc.)
+    /// Get random belly sleep animation (variations of Lie_belly_sleep)
     /// </summary>
-    private AnimationClip GetRandomSleepAnimation()
+    private AnimationClip GetRandomBellySleepAnimation()
     {
-        if (sleepVariations != null && sleepVariations.Length > 0 && Random.value < 0.5f)
+        if (lieBellySleepClips != null && lieBellySleepClips.Length > 0)
         {
-            return sleepVariations[Random.Range(0, sleepVariations.Length)];
+            return lieBellySleepClips[Random.Range(0, lieBellySleepClips.Length)];
         }
+        return idleClip; // Fallback
+    }
 
-        return sleepClip ?? idleClip;
+    /// <summary>
+    /// Get random side sleep animation (variations of Lie_side_sleep)
+    /// </summary>
+    private AnimationClip GetRandomSideSleepAnimation()
+    {
+        if (lieSideSleepClips != null && lieSideSleepClips.Length > 0)
+        {
+            return lieSideSleepClips[Random.Range(0, lieSideSleepClips.Length)];
+        }
+        return idleClip; // Fallback
     }
 
     #endregion

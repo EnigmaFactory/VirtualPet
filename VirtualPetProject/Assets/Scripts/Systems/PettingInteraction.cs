@@ -275,10 +275,10 @@ public class PettingInteraction : MonoBehaviour
             {
                 switch (catData.personality)
                 {
-                    case CatPersonality.Affectionate:
+                    case CatPersonality.Social:
                         affection *= 1.5f; // Loves petting
                         break;
-                    case CatPersonality.Independent:
+                    case CatPersonality.Shy:
                         affection *= 0.7f; // Tolerates petting
                         break;
                     case CatPersonality.Playful:
@@ -307,7 +307,7 @@ public class PettingInteraction : MonoBehaviour
             }
 
             // Notify GameManager
-            GameManager.Instance?.OnCatAffectionChanged(catData.catId, catData.affection);
+            GameManager.Instance?.OnCatAffectionChanged(catData.id, catData.affection);
         }
     }
 
@@ -319,7 +319,7 @@ public class PettingInteraction : MonoBehaviour
         // Search for matching cat by name or ID
         foreach (var cat in GameManager.Instance.PlayerProfile.cats.Values)
         {
-            if (catObject.name.Contains(cat.name) || catObject.name.Contains(cat.catId))
+            if (catObject.name.Contains(cat.name) || catObject.name.Contains(cat.id))
             {
                 return cat;
             }

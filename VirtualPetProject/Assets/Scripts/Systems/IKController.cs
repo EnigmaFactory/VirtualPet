@@ -324,7 +324,7 @@ public class IKController : MonoBehaviour
         if (rb != null && spine != null)
         {
             // Lean into movement direction
-            Vector3 velocity = rb.velocity;
+            Vector3 velocity = rb.linearVelocity;
             float lateralSpeed = Vector3.Dot(velocity, transform.right);
 
             // Lean spine

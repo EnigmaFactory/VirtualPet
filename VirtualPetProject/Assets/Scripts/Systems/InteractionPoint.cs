@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -31,10 +32,16 @@ public class InteractionPoint : MonoBehaviour
     [SerializeField] private bool isToy = false;
     [SerializeField] private Rigidbody toyRigidbody; // For physics toys
     [SerializeField] private float playDuration = 5f; // How long cat plays before leaving
+    [Header("Toy Physics")]
+    [SerializeField] private Vector2 toyImpulseDelayRange = new Vector2(0.8f, 1.4f);
+    [SerializeField] private float toyImpulseStrength = 1.3f;
+    [SerializeField] private float toyTorqueStrength = 0.6f;
+    [SerializeField] private float toyMaxSpeed = 2.5f;
 
     // Runtime
     private GameObject currentOccupant;
     private float occupiedStartTime;
+    private Coroutine toyPlayRoutine;
 
     /// <summary>
     /// Can this interaction point be used by given cat?
@@ -52,6 +59,18 @@ public class InteractionPoint : MonoBehaviour
 
         return true;
     }
+
+    void Awake()
+    {
+        AutoAssignToyRigidbody();
+    }
+
+#if UNITY_EDITOR
+    void OnValidate()
+    {
+        AutoAssignToyRigidbody();
+    }
+#endif
 
     /// <summary>
     /// Cat starts using this interaction point
@@ -92,6 +111,8 @@ public class InteractionPoint : MonoBehaviour
         // Trigger appropriate animation
         TriggerInteractionAnimation(catController);
 
+        BeginToyPlay();
+
         Debug.Log($"🪑 {catObject.name} started {interactionType} interaction");
     }
 
@@ -112,6 +133,8 @@ public class InteractionPoint : MonoBehaviour
             ikController.ClearLookAtTarget();
         }
 
+        StopToyPlay();
+
         Debug.Log($"🚶 {catObject.name} ended {interactionType} interaction");
     }
 
@@ -127,6 +150,11 @@ public class InteractionPoint : MonoBehaviour
                 EndInteraction(currentOccupant);
             }
         }
+    }
+
+    void OnDisable()
+    {
+        StopToyPlay();
     }
 
     /// <summary>
@@ -231,6 +259,101 @@ public class InteractionPoint : MonoBehaviour
     }
 
     #endregion
+
+    void BeginToyPlay()
+    {
+        if (!isToy)
+        {
+            return;
+        }
+
+        AutoAssignToyRigidbody();
+
+        if (toyRigidbody == null)
+        {
+            return;
+        }
+
+        ApplyToyImpulse(true);
+
+        if (toyPlayRoutine != null)
+        {
+            StopCoroutine(toyPlayRoutine);
+        }
+
+        toyPlayRoutine = StartCoroutine(ToyPlayRoutine());
+    }
+
+    void StopToyPlay()
+    {
+        if (toyPlayRoutine != null)
+        {
+            StopCoroutine(toyPlayRoutine);
+            toyPlayRoutine = null;
+        }
+    }
+
+    IEnumerator ToyPlayRoutine()
+    {
+        while (isToy && isOccupied && currentOccupant != null && toyRigidbody != null)
+        {
+            yield return new WaitForSeconds(GetNextToyImpulseDelay());
+            ApplyToyImpulse();
+        }
+
+        toyPlayRoutine = null;
+    }
+
+    void ApplyToyImpulse(bool boosted = false)
+    {
+        if (toyRigidbody == null)
+        {
+            return;
+        }
+
+        Vector3 catForward = currentOccupant != null ? currentOccupant.transform.forward : transform.forward;
+        Vector3 random = Random.onUnitSphere;
+        random.y = Mathf.Abs(random.y) * 0.4f;
+
+        Vector3 impulseDirection = (catForward * 0.7f + random).normalized;
+        float strength = boosted ? toyImpulseStrength * 1.3f : toyImpulseStrength;
+
+        toyRigidbody.AddForce(impulseDirection * strength, ForceMode.Impulse);
+        toyRigidbody.AddTorque(Random.onUnitSphere * toyTorqueStrength, ForceMode.Impulse);
+
+        ClampToyVelocity();
+    }
+
+    float GetNextToyImpulseDelay()
+    {
+        float min = Mathf.Max(0.1f, Mathf.Min(toyImpulseDelayRange.x, toyImpulseDelayRange.y));
+        float max = Mathf.Max(min + 0.01f, Mathf.Max(toyImpulseDelayRange.x, toyImpulseDelayRange.y));
+        return Random.Range(min, max);
+    }
+
+    void ClampToyVelocity()
+    {
+        if (toyRigidbody == null || toyMaxSpeed <= 0f)
+        {
+            return;
+        }
+
+        float maxSpeedSqr = toyMaxSpeed * toyMaxSpeed;
+        if (toyRigidbody.linearVelocity.sqrMagnitude > maxSpeedSqr)
+        {
+            toyRigidbody.linearVelocity = toyRigidbody.linearVelocity.normalized * toyMaxSpeed;
+        }
+    }
+
+    void AutoAssignToyRigidbody()
+    {
+        if (!isToy || toyRigidbody != null)
+        {
+            return;
+        }
+
+        toyRigidbody = GetComponentInParent<Rigidbody>();
+    }
 }
 
 /// <summary>
