@@ -1,0 +1,157 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2701312901280127415
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5486815121466755794}
+  - component: {fileID: 1519057960963867358}
+  m_Layer: 0
+  m_Name: IP_Scratch Point 01
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5486815121466755794
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2701312901280127415}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.53719854, z: 0.08810626}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 3702590226194324020}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1519057960963867358
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2701312901280127415}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4dd083984f3ebda4a83987b353d151da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionPoint
+  interactionType: 6
+  customAnimationName: 
+  frontLeftPawTarget: {fileID: 0}
+  frontRightPawTarget: {fileID: 0}
+  backLeftPawTarget: {fileID: 0}
+  backRightPawTarget: {fileID: 0}
+  headLookTarget: {fileID: 0}
+  snapToPosition: 1
+  matchRotation: 1
+  isOccupied: 0
+  maxOccupants: 1
+  preferredPersonalities: 
+  isToy: 0
+  toyRigidbody: {fileID: 0}
+  playDuration: 5
+--- !u!1001 &9183284613360383647
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 5140993314596779537, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_Name
+      value: scratching_post_simple_blue
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5486815121466755794}
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5140993314596779537, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2815125625255401439}
+  m_SourcePrefab: {fileID: 100100000, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+--- !u!4 &3702590226194324020 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 5481912650780814507, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+  m_PrefabInstance: {fileID: 9183284613360383647}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &4047028098642018446 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5140993314596779537, guid: ee17bb94c5bee9045bf4d749ea188686, type: 3}
+  m_PrefabInstance: {fileID: 9183284613360383647}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &2815125625255401439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4047028098642018446}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44a4d88fe9777ee4bb8ad9c6428ad6d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InteractionPointAuthoring
+  anchors:
+  - anchorName: Scratch Point 01
+    interactionType: 6
+    localPosition: {x: 0, y: 0.53719854, z: 0.08810626}
+    localEuler: {x: 0, y: 0, z: 0}
+    snapToPosition: 1
+    matchRotation: 1
+    maxOccupants: 1
+    isToy: 0
+    playDuration: 5
+  gizmoColor: {r: 0.2, g: 0.8, b: 1, a: 0.6}
